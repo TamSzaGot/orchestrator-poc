@@ -1,7 +1,8 @@
 rootProject.name = 'orchestrator-poc'
 
 include 'orchestrator', 'orchestrator:application', 'orchestrator:core', 'orchestrator:inbound', 'orchestrator:outbound',
-        'admin-bff', 'admin-bff:application', 'admin-bff:core', 'admin-bff:inbound', 'admin-bff:outbound'
+    'admin-bff', 'admin-bff:application', 'admin-bff:core', 'admin-bff:inbound', 'admin-bff:outbound',
+    'ingester', 'ingester:application', 'ingester:core', 'ingester:inbound', 'ingester:outbound'
 
 project(':orchestrator').projectDir = file('orchestrator')
 project(':orchestrator:application').projectDir = file('orchestrator/application')
@@ -13,3 +14,8 @@ project(':admin-bff:application').projectDir = file('admin-bff/application')
 project(':admin-bff:core').projectDir = file('admin-bff/core')
 project(':admin-bff:inbound').projectDir = file('admin-bff/inbound')
 project(':admin-bff:outbound').projectDir = file('admin-bff/outbound')
+project(':ingester').projectDir = file('ingester')
+project(':ingester:application').projectDir = file('ingester/application')
+project(':ingester:core').projectDir = file('ingester/core')
+project(':ingester:inbound').projectDir = file('ingester/inbound')
+project(':ingester:outbound').projectDir = file('ingester/outbound')

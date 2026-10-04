@@ -1,9 +1,10 @@
 # Orchestrator + Admin BFF POC
 
-Monorepo containing two Spring Boot 4.1 services using Java 21 and Gradle:
+Monorepo containing three Spring Boot 4.1 services using Java 21 and Gradle:
 
 - `orchestrator`: leader-elected orchestrator with read and write admin APIs
 - `admin-bff`: minimal BFF that calls orchestrator read and write services
+- `ingester`: ingestion service skeleton with hexagonal module structure
 
 For local Kubernetes deployment, orchestrator uses PostgreSQL shared state so read traffic can remain load balanced over all orchestrator pods.
 
@@ -28,6 +29,7 @@ gradle clean test
 ```bash
 ./gradlew :orchestrator:application:bootRun
 ./gradlew :admin-bff:application:bootRun
+./gradlew :ingester:application:bootRun
 ```
 
 ## Kubernetes manifests
