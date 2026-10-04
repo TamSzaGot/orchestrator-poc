@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: admin-bff
+
+orchestrator:
+  read-base-url: http://orchestrator-read
+  write-base-url: http://orchestrator-write

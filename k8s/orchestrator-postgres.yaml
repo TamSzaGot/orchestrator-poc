@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator-postgres
+  template:
+    metadata:
+      labels:
+        app: orchestrator-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: orchestrator
+            - name: POSTGRES_USER
+              value: orchestrator
+            - name: POSTGRES_PASSWORD
+              value: orchestrator
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U orchestrator -d orchestrator"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U orchestrator -d orchestrator"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: orchestrator-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-postgres
+spec:
+  selector:
+    app: orchestrator-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orchestrator-postgres-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

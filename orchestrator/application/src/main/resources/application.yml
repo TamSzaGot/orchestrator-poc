@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: orchestrator
+  sql:
+    init:
+      mode: always
+
+job:
+  store:
+    type: in-memory
+
+leader:
+  election:
+    enabled: false
+    lease-name: orchestrator-leader
+    lease-duration-seconds: 15
+    retry-ms: 2000
+    namespace: default

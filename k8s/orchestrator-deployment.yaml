@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      serviceAccountName: orchestrator-sa
+      containers:
+        - name: orchestrator
+          image: orchestrator:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: JOB_STORE_TYPE
+              value: jdbc
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://orchestrator-postgres:5432/orchestrator
+            - name: SPRING_DATASOURCE_USERNAME
+              value: orchestrator
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: orchestrator
+          readinessProbe:
+            httpGet:
+              path: /admin/jobs
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /admin/jobs
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15

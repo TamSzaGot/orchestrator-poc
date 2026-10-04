@@ -1,0 +1,8 @@
+rootProject.name = 'orchestrator'
+
+include 'core', 'inbound', 'outbound', 'architecture-tests'
+
+project(':core').projectDir = file('core')
+project(':inbound').projectDir = file('inbound')
+project(':outbound').projectDir = file('outbound')
+project(':architecture-tests').projectDir = file('architecture-tests')
