@@ -1,0 +1,200 @@
+openapi: 3.1.0
+info:
+  title: Ingester Submission API
+  version: 0.2.0
+  description: |
+    API implemented by the ingester service.
+    Partners stream large payloads to this API as NDJSON.
+    The orchestrator-issued submission token is required in X-Submission-Token.
+servers:
+  - url: https://ingester.example.com
+    description: Ingester endpoint
+paths:
+  /ingestions/records:
+    post:
+      operationId: ingestSubmissionRecords
+      summary: Ingest NDJSON stream for a submission
+      description: |
+        Receives newline-delimited JSON objects.
+        Each line is one JSON object. Empty lines should be ignored.
+        Submission context is taken from JWT claims, not URL parameters.
+        Payload line sequenceNr values must be contiguous and strictly increasing
+        starting at 1.
+        The stream must end with a SUBMISSION_END control object containing
+        numberOfObjects so the ingester can detect partial uploads.
+      parameters:
+        - name: X-Submission-Token
+          in: header
+          required: true
+          schema:
+            type: string
+          description: |
+            JWT token issued and signed by the orchestrator.
+            The ingester validates signature and required claims before accepting data.
+            Required claims: submissionId, exp, iat, jti.
+            Optional claims for real-world filtering: fromDate, toDate.
+            Token is single-use: if the same valid token (same jti) is reused,
+            ingester must reject with HTTP 409.
+      requestBody:
+        required: true
+        content:
+          application/x-ndjson:
+            schema:
+              type: string
+              description: |
+                NDJSON payload. Every line must be a valid JSON object matching
+                one of:
+                - StreamPayloadObject (business record)
+                - EndOfSubmissionObject (stream terminator)
+            x-ndjson-line-schema:
+              $ref: '#/components/schemas/NdjsonStreamObject'
+            examples:
+              sample:
+                value: |
+                  {"sequenceNr":1,"payload":{"recordId":"r-1","customerId":"c-1","eventType":"CREATED","eventAt":"2026-10-04T21:01:00Z","amount":100}}
+                  {"sequenceNr":2,"payload":{"recordId":"r-2","customerId":"c-2","eventType":"UPDATED","eventAt":"2026-10-04T21:01:01Z","amount":130}}
+                  {"type":"SUBMISSION_END","numberOfObjects":2,"sentAt":"2026-10-04T21:01:03Z"}
+      responses:
+        '202':
+          description: Stream accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionAcceptedResponse'
+        '400':
+          description: Malformed NDJSON or invalid header/body values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid submission token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Token is valid but not authorized for the requested submission scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Token already used for a prior submission attempt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Payload exceeds configured limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported media type. Must be application/x-ndjson.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: SUBMISSION_END missing, invalid, numberOfObjects mismatch, or non-contiguous sequenceNr
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    NdjsonStreamObject:
+      oneOf:
+        - $ref: '#/components/schemas/StreamPayloadObject'
+        - $ref: '#/components/schemas/EndOfSubmissionObject'
+      description: One NDJSON line object. The stream is a sequence of these objects.
+    StreamPayloadObject:
+      type: object
+      required:
+        - sequenceNr
+        - payload
+      properties:
+        sequenceNr:
+          type: integer
+          minimum: 1
+          description: Contiguous sequence number for payload lines, starting at 1.
+        payload:
+          type: object
+          additionalProperties: true
+          description: Anonymous business object for the current submission.
+    EndOfSubmissionObject:
+      type: object
+      required:
+        - type
+        - numberOfObjects
+      properties:
+        type:
+          type: string
+          const: SUBMISSION_END
+        numberOfObjects:
+          type: integer
+          minimum: 0
+          description: Total number of StreamPayloadObject lines sent in the stream and must equal the highest sequenceNr.
+        sentAt:
+          type: string
+          format: date-time
+    SubmissionTokenClaims:
+      type: object
+      description: Expected JWT claim contract used by ingester validation.
+      required:
+        - submissionId
+        - exp
+        - iat
+        - jti
+      properties:
+        submissionId:
+          type: string
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+        exp:
+          type: integer
+          description: Expiration timestamp (epoch seconds)
+        iat:
+          type: integer
+          description: Issued-at timestamp (epoch seconds)
+        jti:
+          type: string
+          description: Unique token identifier for replay detection
+    IngestionAcceptedResponse:
+      type: object
+      required:
+        - submissionId
+        - ingestionId
+        - acceptedAt
+        - status
+      properties:
+        submissionId:
+          type: string
+        ingestionId:
+          type: string
+        acceptedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACCEPTED]
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string

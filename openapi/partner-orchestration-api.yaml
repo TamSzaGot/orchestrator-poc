@@ -1,0 +1,225 @@
+openapi: 3.1.0
+info:
+  title: Partner Submission Control API
+  version: 0.2.0
+  description: |
+    API implemented by partners. The orchestrator calls these endpoints to:
+    1) trigger a submission from the partner to the ingester, and
+    2) report the final outcome of that submission.
+servers:
+  - url: https://partner.example.com
+    description: Partner endpoint
+paths:
+  /partner-submissions/trigger:
+    post:
+      operationId: triggerPartnerSubmission
+      summary: Trigger partner submission
+      description: |
+        Called by the orchestrator to ask a partner to submit data to the ingester.
+        The orchestrator issues a submission token and ingester URL that the partner
+        must use for the streamed NDJSON upload. For POC, one trigger maps to one
+        submission stream for a single submissionId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerSubmissionRequest'
+            examples:
+              basic:
+                value:
+                  submissionId: sub-20261004-0001
+                  partnerId: partner-a
+                  ingesterUrl: https://ingester.example.com/ingestions/records
+                  submissionToken: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+                  tokenExpiresAt: 2026-10-04T22:00:00Z
+                  requestedAt: 2026-10-04T21:00:00Z
+                  submissionWindow:
+                    fromDate: 2026-10-01
+                    toDate: 2026-10-04
+      responses:
+        '202':
+          description: Trigger accepted by partner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerSubmissionResponse'
+        '400':
+          description: Invalid trigger request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Submission already active or duplicate submissionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /partner-submissions/{submissionId}/outcome:
+    post:
+      operationId: notifySubmissionOutcome
+      summary: Notify partner about submission outcome
+      description: |
+        Called by the orchestrator when ingestion/processing is complete.
+        This endpoint is intentionally non-idempotent in this contract.
+        If the same submission has already been reported, the partner returns
+        HTTP 409 with code ALREADY_REPORTED.
+      parameters:
+        - name: submissionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmissionOutcomeRequest'
+            examples:
+              success:
+                value:
+                  submissionId: sub-20261004-0001
+                  status: SUCCEEDED
+                  completedAt: 2026-10-04T21:05:48Z
+                  receivedRecordCount: 250000
+                  acceptedRecordCount: 249900
+                  rejectedRecordCount: 100
+      responses:
+        '204':
+          description: Outcome accepted
+        '400':
+          description: Invalid outcome payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Unknown submissionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Outcome already reported for this submissionId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    TriggerSubmissionRequest:
+      type: object
+      required:
+        - submissionId
+        - partnerId
+        - ingesterUrl
+        - submissionToken
+        - tokenExpiresAt
+        - requestedAt
+      properties:
+        submissionId:
+          type: string
+        partnerId:
+          type: string
+        ingesterUrl:
+          type: string
+          format: uri
+        submissionToken:
+          type: string
+          description: JWT token to include as X-Submission-Token header.
+        tokenExpiresAt:
+          type: string
+          format: date-time
+        requestedAt:
+          type: string
+          format: date-time
+        submissionWindow:
+          $ref: '#/components/schemas/SubmissionWindow'
+        collectionNumber:
+          type: integer
+          minimum: 1
+          description: Optional for future chunked submissions. Not required in POC.
+        metadata:
+          type: object
+          additionalProperties: true
+    TriggerSubmissionResponse:
+      type: object
+      required:
+        - submissionId
+        - status
+        - acceptedAt
+      properties:
+        submissionId:
+          type: string
+        status:
+          type: string
+          enum: [ACCEPTED, REJECTED]
+        acceptedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+    SubmissionOutcomeRequest:
+      type: object
+      required:
+        - submissionId
+        - status
+        - completedAt
+      properties:
+        submissionId:
+          type: string
+        status:
+          type: string
+          enum: [SUCCEEDED, PARTIALLY_SUCCEEDED, FAILED, CANCELLED]
+        completedAt:
+          type: string
+          format: date-time
+        receivedRecordCount:
+          type: integer
+          minimum: 0
+        acceptedRecordCount:
+          type: integer
+          minimum: 0
+        rejectedRecordCount:
+          type: integer
+          minimum: 0
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionError'
+    SubmissionWindow:
+      type: object
+      description: Optional business filter represented in the JWT claims as well.
+      properties:
+        fromDate:
+          type: string
+          format: date
+        toDate:
+          type: string
+          format: date
+    SubmissionError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
