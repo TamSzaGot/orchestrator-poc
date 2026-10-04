@@ -2,7 +2,6 @@
   "name": "mock-partner",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "clean": "rm -rf dist generated",
     "codegen": "npm run codegen:partner && npm run codegen:ingester",
