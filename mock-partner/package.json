@@ -1,0 +1,24 @@
+{
+  "name": "mock-partner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist generated",
+    "codegen": "npm run codegen:partner && npm run codegen:ingester",
+    "codegen:partner": "openapi-generator-cli generate -i ../openapi/partner-orchestration-api.yaml -g typescript-fetch -o ./generated/partner-api --additional-properties=typescriptThreePlus=true,supportsES6=true,modelPropertyNaming=original",
+    "codegen:ingester": "openapi-generator-cli generate -i ../openapi/ingester-submission-api.yaml -g typescript-fetch -o ./generated/ingester-api --additional-properties=typescriptThreePlus=true,supportsES6=true,modelPropertyNaming=original",
+    "build": "npm run codegen && tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.13.4",
+    "@types/express": "^4.17.21",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

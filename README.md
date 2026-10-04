@@ -6,6 +6,10 @@ Monorepo containing three Spring Boot 4.1 services using Java 21 and Gradle:
 - `admin-bff`: minimal BFF that calls orchestrator read and write services
 - `ingester`: ingestion service skeleton with hexagonal module structure
 
+Also includes a lightweight JavaScript mock partner service:
+
+- `mock-partner`: minimal Node.js server for partner trigger/outcome callbacks and OpenAPI-driven code generation
+
 For local Kubernetes deployment, orchestrator uses PostgreSQL shared state so read traffic can remain load balanced over all orchestrator pods.
 
 ## Build
@@ -100,3 +104,17 @@ Optional args:
 ```bash
 ./scripts/smoke-persistence.sh <namespace> <submission-id> <partner-id> <local-port>
 ```
+
+## Mock partner (lightweight)
+
+```bash
+cd mock-partner
+npm install
+npm run codegen
+npm run dev
+```
+
+Code generation uses repository OpenAPI specs:
+
+- `openapi/partner-orchestration-api.yaml` (partner API contract)
+- `openapi/ingester-submission-api.yaml` (ingester client contract)
